@@ -1,0 +1,45 @@
+{
+  "name": "@zylora/sdk",
+  "version": "0.1.0",
+  "description": "Zylora GPU platform TypeScript SDK — invoke serverless GPU functions",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "clean": "rimraf dist"
+  },
+  "keywords": [
+    "zylora",
+    "gpu",
+    "serverless",
+    "ml",
+    "inference"
+  ],
+  "author": "Zylora <eng@zylora.dev>",
+  "license": "MIT",
+  "packageManager": "pnpm@10.26.2",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
+  }
+}
