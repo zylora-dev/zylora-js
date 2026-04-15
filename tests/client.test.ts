@@ -27,7 +27,15 @@ describe("Zylora client", () => {
 
   it("invoke sends correct request", async () => {
     fetchSpy.mockResolvedValueOnce(
-      mockResponse(200, { embedding: [0.1, 0.2, 0.3] }),
+      mockResponse(200, {
+        invocation_id: "019d0000-0000-7000-0000-000000000001",
+        status: "completed",
+        output: { embedding: [0.1, 0.2, 0.3] },
+        duration_ms: 42,
+        cost_cents: 1,
+        gpu_type: "h100",
+        cold_start: false,
+      }),
     );
 
     const zy = new Zylora({ apiKey: "zy_test_key" });
@@ -69,20 +77,18 @@ describe("Zylora client", () => {
   it("batch sends correct request shape", async () => {
     const batchBody = {
       results: [
-        { index: 0, status: "completed", result: [0.1], error: null },
-        { index: 1, status: "completed", result: [0.2], error: null },
+        { index: 0, status: "completed", output: [0.1], error: null, duration_ms: 10, cost_cents: 1 },
+        { index: 1, status: "completed", output: [0.2], error: null, duration_ms: 12, cost_cents: 1 },
       ],
-      total: 2,
-      succeeded: 2,
-      failed: 0,
+      total_cost_cents: 2,
     };
     fetchSpy.mockResolvedValueOnce(mockResponse(200, batchBody));
 
     const zy = new Zylora({ apiKey: "zy_test" });
     const result = await zy.batch("embed-fn", [{ text: "a" }, { text: "b" }]);
 
-    expect(result.total).toBe(2);
-    expect(result.succeeded).toBe(2);
+    expect(result.results).toHaveLength(2);
+    expect(result.total_cost_cents).toBe(2);
 
     const [url, init] = fetchSpy.mock.calls[0]!;
     expect(url).toBe("https://api.zylora.dev/v1/functions/embed-fn/map");
@@ -93,7 +99,7 @@ describe("Zylora client", () => {
 
   it("batch uses custom concurrency", async () => {
     fetchSpy.mockResolvedValueOnce(
-      mockResponse(200, { results: [], total: 0, succeeded: 0, failed: 0 }),
+      mockResponse(200, { results: [], total_cost_cents: 0 }),
     );
 
     const zy = new Zylora({ apiKey: "zy_test" });
@@ -122,9 +128,10 @@ describe("Zylora client", () => {
       mockResponse(200, {
         job_id: "job-abc-123",
         status: "running",
-        result: null,
+        output: null,
         error: null,
-        created_at: "2026-04-10T14:30:00Z",
+        duration_ms: null,
+        cost_cents: null,
         completed_at: null,
       }),
     );
@@ -132,9 +139,10 @@ describe("Zylora client", () => {
       mockResponse(200, {
         job_id: "job-abc-123",
         status: "completed",
-        result: { embedding: [0.1] },
+        output: { embedding: [0.1] },
         error: null,
-        created_at: "2026-04-10T14:30:00Z",
+        duration_ms: 200,
+        cost_cents: 5,
         completed_at: "2026-04-10T14:30:02Z",
       }),
     );
@@ -146,7 +154,15 @@ describe("Zylora client", () => {
   it("retries on 5xx errors", async () => {
     fetchSpy
       .mockResolvedValueOnce(mockResponse(500, { error: { code: "internal", message: "oops", request_id: "r1" } }))
-      .mockResolvedValueOnce(mockResponse(200, { ok: true }));
+      .mockResolvedValueOnce(mockResponse(200, {
+        invocation_id: "019d0000-0000-7000-0000-000000000002",
+        status: "completed",
+        output: { ok: true },
+        duration_ms: 1,
+        cost_cents: 1,
+        gpu_type: "h100",
+        cold_start: false,
+      }));
 
     const zy = new Zylora({ apiKey: "zy_test", maxRetries: 2 });
     const result = await zy.invoke("fn", {});
@@ -156,7 +172,15 @@ describe("Zylora client", () => {
   });
 
   it("sends SDK version header", async () => {
-    fetchSpy.mockResolvedValueOnce(mockResponse(200, {}));
+    fetchSpy.mockResolvedValueOnce(mockResponse(200, {
+      invocation_id: "019d0000-0000-7000-0000-000000000003",
+      status: "completed",
+      output: {},
+      duration_ms: 1,
+      cost_cents: 1,
+      gpu_type: "h100",
+      cold_start: false,
+    }));
 
     const zy = new Zylora({ apiKey: "zy_test" });
     await zy.invoke("fn", {});
@@ -167,12 +191,39 @@ describe("Zylora client", () => {
   });
 
   it("encodes function ID in URL", async () => {
-    fetchSpy.mockResolvedValueOnce(mockResponse(200, {}));
+    fetchSpy.mockResolvedValueOnce(mockResponse(200, {
+      invocation_id: "019d0000-0000-7000-0000-000000000004",
+      status: "completed",
+      output: null,
+      duration_ms: 1,
+      cost_cents: 1,
+      gpu_type: "h100",
+      cold_start: false,
+    }));
 
     const zy = new Zylora({ apiKey: "zy_test" });
     await zy.invoke("fn with spaces", {});
 
     const url = fetchSpy.mock.calls[0]![0] as string;
     expect(url).toContain("fn%20with%20spaces");
+  });
+
+  it("extracts retryAfter from 429 response headers", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ error: { code: "rate_limit", message: "slow down", request_id: "r1" } }),
+        { status: 429, headers: { "Content-Type": "application/json", "retry-after": "30" } },
+      ),
+    );
+
+    const zy = new Zylora({ apiKey: "zy_test" });
+    try {
+      await zy.invoke("fn", {});
+      expect.fail("should have thrown");
+    } catch (err) {
+      const { RateLimitError } = await import("../src/errors.js");
+      expect(err).toBeInstanceOf(RateLimitError);
+      expect((err as InstanceType<typeof RateLimitError>).retryAfter).toBe(30);
+    }
   });
 });

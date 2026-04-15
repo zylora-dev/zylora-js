@@ -92,7 +92,11 @@ export class NoCapacityError extends ZyloraError {
 /**
  * Map an HTTP status code and optional error body to a typed SDK error.
  */
-export function mapError(status: number, body: ErrorDetail | undefined): ZyloraError {
+export function mapError(
+  status: number,
+  body: ErrorDetail | undefined,
+  headers?: Headers,
+): ZyloraError {
   const message = body?.message;
   const requestId = body?.request_id;
 
@@ -107,8 +111,14 @@ export function mapError(status: number, body: ErrorDetail | undefined): ZyloraE
       return new TimeoutError(message, requestId);
     case 422:
       return new ValidationError(message, requestId);
-    case 429:
-      return new RateLimitError(message, requestId);
+    case 429: {
+      const retryAfter = headers?.get("retry-after");
+      return new RateLimitError(
+        message,
+        requestId,
+        retryAfter != null ? parseInt(retryAfter, 10) : undefined,
+      );
+    }
     case 503:
       return new NoCapacityError(message, requestId);
     default:

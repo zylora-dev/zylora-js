@@ -44,7 +44,7 @@ export class Zylora {
       input,
       options,
     );
-    return response as T;
+    return (response as { output: T }).output;
   }
 
   /**
@@ -88,7 +88,7 @@ export class Zylora {
 
     if (!response.ok) {
       const error = await this.parseErrorResponse(response);
-      throw mapError(response.status, error);
+      throw mapError(response.status, error, response.headers);
     }
 
     if (!response.body) {
@@ -113,7 +113,7 @@ export class Zylora {
 
     if (!response.ok) {
       const error = await this.parseErrorResponse(response);
-      throw mapError(response.status, error);
+      throw mapError(response.status, error, response.headers);
     }
 
     const job = (await response.json()) as AsyncJobResponse;
@@ -128,7 +128,7 @@ export class Zylora {
     const response = await this.rawRequest(url, undefined, {}, "GET");
     if (!response.ok) {
       const error = await this.parseErrorResponse(response);
-      throw mapError(response.status, error);
+      throw mapError(response.status, error, response.headers);
     }
     return (await response.json()) as AsyncJobResult;
   }
@@ -203,7 +203,7 @@ export class Zylora {
 
     if (!response.ok) {
       const error = await this.parseErrorResponse(response);
-      throw mapError(response.status, error);
+      throw mapError(response.status, error, response.headers);
     }
 
     return response.json();
@@ -317,7 +317,7 @@ export class AsyncJob {
       const job = await this.client._pollJob(this.functionId, this.jobId);
 
       if (job.status === "completed") {
-        return job.result as T;
+        return job.output as T;
       }
 
       if (job.status === "failed" || job.status === "timeout" || job.status === "cancelled") {

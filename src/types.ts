@@ -1,16 +1,17 @@
 // ── GPU types ──────────────────────────────────────────────────────────────
 
+// Values match the engine's serde renames (lowercase DB enum strings).
 export const GPU_TYPES = [
-  "H100",
-  "H100_SXM",
-  "A100_80GB",
-  "A100_40GB",
-  "A10G",
-  "L4",
-  "L40S",
-  "T4",
-  "RTX_4090",
-  "RTX_A6000",
+  "t4",
+  "l4",
+  "rtx4090",
+  "a100_40gb",
+  "a100_80gb",
+  "l40s",
+  "h100",
+  "h200",
+  "b200",
+  "mi300x",
 ] as const;
 
 export type GpuType = (typeof GPU_TYPES)[number];
@@ -33,7 +34,7 @@ export type Runtime =
   | "python312"
   | "python313";
 
-export type Visibility = "public" | "private";
+export type Visibility = "public" | "private" | "unlisted";
 
 export type RoutingStrategy =
   | "cost_optimized"
@@ -55,30 +56,32 @@ export interface ErrorResponse {
 export interface AsyncJobResponse {
   job_id: string;
   status: InvocationStatus;
-  created_at: string;
+  created_at?: string;
 }
 
 export interface AsyncJobResult {
   job_id: string;
   status: InvocationStatus;
-  result: unknown;
+  output: unknown;
   error: ErrorDetail | null;
-  created_at: string;
+  duration_ms: number | null;
+  cost_cents: number | null;
+  created_at?: string;
   completed_at: string | null;
 }
 
 export interface BatchResultItem {
   index: number;
   status: "completed" | "failed";
-  result: unknown;
-  error: ErrorDetail | null;
+  output: unknown;
+  error: string | null;
+  duration_ms: number | null;
+  cost_cents: number | null;
 }
 
 export interface BatchResponse {
   results: BatchResultItem[];
-  total: number;
-  succeeded: number;
-  failed: number;
+  total_cost_cents: number;
 }
 
 // ── Client options ─────────────────────────────────────────────────────────
