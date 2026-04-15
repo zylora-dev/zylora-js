@@ -1,3 +1,11 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="logo-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="logo-light.png">
+    <img alt="Zylora" src="logo-dark.png" height="48">
+  </picture>
+</p>
+
 # @zylora/sdk
 
 TypeScript SDK for the Zylora GPU platform — invoke serverless GPU functions from any JavaScript/TypeScript runtime.
