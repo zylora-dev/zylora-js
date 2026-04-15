@@ -32,6 +32,10 @@
   ],
   "author": "Zylora <eng@zylora.dev>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zylora-dev/zylora-js"
+  },
   "packageManager": "pnpm@10.26.2",
   "engines": {
     "node": ">=18"
